@@ -20,3 +20,6 @@ Haven't done much testing, but would like to see about having multiple files upl
 Of course the missing features in the file system, including adding folders, refreshing, navigation, etc.
 Clientside encryption
 
+# Usage
+You can technically use this right now, but I wouldn't recommend it.
+Once it's complete, I'll provide a list of steps to take to use this, until then, if you can't figure it out on your own, you are probably better off without it.
