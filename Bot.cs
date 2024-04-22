@@ -43,7 +43,7 @@ namespace DiscordServerStorage
             _client = new DiscordSocketClient();
             _client.Log += Log;
 
-            string token/*Get your own bucko*/; // gotten from your own discord app.
+            string token/**/;
 
             await _client.LoginAsync(TokenType.Bot, token);
             await _client.StartAsync();
@@ -117,18 +117,11 @@ namespace DiscordServerStorage
                 });
                 CurrentDirectory = MetaDataStructureObject.DirectoryListings[0];
 
-                CurrentDirectory.SubDirectories.Add(new CustomDirectory
-                {
-                    Name = "test1"
-                });
-                CurrentDirectory.SubDirectories.Add(new CustomDirectory
-                {
-                    Name = "test2"
-                });
-                CurrentDirectory.SubDirectories.Add(new CustomDirectory
-                {
-                    Name = "test3"
-                });
+                await AddNewDirectory("test1", false);
+                await AddNewDirectory("test2", false);
+                await AddNewDirectory("test3", false);
+
+
 
 
                 await UpdateServerMetaData();
@@ -142,9 +135,9 @@ namespace DiscordServerStorage
         }
 
         // change to multi channel system in future
-        private ulong StorageChannel/*= GONNA NEED TO ENTER YOUR OWN */; // this is done via a channel id
-        private ulong MetaDataChannel/*= GONNA NEED TO ENTER YOUR OWN */; // this is done via a channel id
-        private ulong StaticMetaDataID/*= GONNA NEED TO ENTER YOUR OWN */; // this is done by launching the bot once and letting it send a message to get the ID from.
+        private ulong StorageChannel/* = */;
+        private ulong MetaDataChannel/* = */;
+        private ulong StaticMetaDataID/* = */;
         // This changes because the bot will upload new metadata details after making changes
         // afterwards, we will simply edit the staticMetaDataID's message with the updated message ID
         private IUserMessage MetaDataMsg;
@@ -153,15 +146,20 @@ namespace DiscordServerStorage
         internal CustomDirectory CurrentDirectory;
         //private List<ulong> TestFile = new List<ulong>();
 
-        public async Task AddNewDirectory(string name)
+        public async Task AddNewDirectory(string name, bool UpdateServer = true)
         {
             CustomDirectory temp = new CustomDirectory
             {
-                Name = name
+                Name = name,
+                ParentDirectory = CurrentDirectory
             };
             CurrentDirectory.SubDirectories.Add(temp);
 
-            await UpdateServerMetaData();
+            if (UpdateServer)
+            {
+                await UpdateServerMetaData();
+            }
+            
 
         }
 
@@ -190,13 +188,18 @@ namespace DiscordServerStorage
             return items;
         }
 
+
         private async Task UpdateServerMetaData()
         {
             // called when a change happens to the server and we need to update the metadata.
             // this should be called as soon as possible and as much as possible without hindering the experience
             // Keeping this updated is what keeps the file system accurate.
 
-            var buffer = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(MetaDataStructureObject));
+            var buffer = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(MetaDataStructureObject, Formatting.None, 
+                new JsonSerializerSettings()
+                {
+                    ReferenceLoopHandling = ReferenceLoopHandling.Ignore
+                }));
 
             using (var fs = new FileStream("tempmetadata.json", FileMode.OpenOrCreate,
                 FileAccess.Write, FileShare.None, buffer.Length, true))
@@ -316,6 +319,65 @@ namespace DiscordServerStorage
                 }
             }
             newFile.Dispose();
+        }
+
+        public async Task DeleteFile(string fileName)
+        {
+            foreach(CustomFile file in GetFilesInCurrentDirectory())
+            {
+                if(file.FileName == fileName)
+                {
+                    var Channel = _client.GetChannel(StorageChannel) as IMessageChannel;
+                    foreach(string msg in file.ServerMessages)
+                    {
+                        ulong msgId = Convert.ToUInt64(msg);
+                        await Channel.DeleteMessageAsync(msgId);
+                    }
+
+                    CurrentDirectory.MyFiles.Remove(file);
+                    await UpdateServerMetaData();
+                    break;
+                }
+            }
+        }
+
+        public void SetCurrentDirectory(string currentDirectory)
+        {
+            foreach(CustomDirectory dir in GetDirsInCurrentDirectory())
+            {
+                if(dir.Name == currentDirectory)
+                {
+                    CurrentDirectory = dir;
+                    break;
+                }
+            }
+        }
+
+        public async Task DeleteFolder(string folderName)
+        {
+            foreach(CustomDirectory dir in GetDirsInCurrentDirectory())
+            {
+                if(dir.Name == folderName)
+                {
+                    if(dir.MyFiles.Count != 0)
+                    {
+                        foreach(CustomFile file in dir.MyFiles)
+                        {
+                            await DeleteFile(file.FileName);
+                        }
+                    }
+                    if(dir.MyFiles.Count != 0)
+                    {
+                        // recursive is spooky
+                        await DeleteFolder(folderName);
+                    }
+
+                    // Don't need to update current dir since we aren't deleting the dir we are in
+                    
+                    CurrentDirectory.SubDirectories.Remove(dir);
+                    break;
+                }
+            }
         }
 
         private List<ulong> GetDownloadChunksByName(string fileName)

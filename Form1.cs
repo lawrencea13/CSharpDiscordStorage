@@ -10,6 +10,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using Microsoft.WindowsAPICodePack.Shell;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 
 namespace DiscordServerStorage
 {
@@ -55,11 +56,7 @@ namespace DiscordServerStorage
             string[] files = (string[])e.Data.GetData(DataFormats.FileDrop);
             foreach (string file in files) 
             {
-                // Don't want to do if I am reading large files lmao
-                //byte[] FileData = File.ReadAllBytes(file);
                 FileInfo fileInfo = new FileInfo(file);
-                //Console.WriteLine((fileInfo.Length / 1024).ToString());
-                //Console.WriteLine(FileData.Length / 1024);
                 if(fileInfo.Length / 1000 > 25000)
                 {
                     // we will handle the file completely within the particular method, only need to pass fileinfo.
@@ -76,6 +73,7 @@ namespace DiscordServerStorage
 
         public void PopuplateFoldersAndFiles()
         {
+            panel1.Controls.Clear();
 
             List<CustomDirectory> currentFolders = Interface.GetDirsInCurrentDirectory();
             List<CustomFile> currentFiles = Interface.GetFilesInCurrentDirectory();
@@ -84,6 +82,7 @@ namespace DiscordServerStorage
 
             foreach(CustomDirectory dir in currentFolders)
             {
+                
 
                 Panel panel = new Panel
                 {
@@ -103,9 +102,29 @@ namespace DiscordServerStorage
                     Dock = DockStyle.Fill,
                 };
                 panel.Controls.Add(label);
-                label.BringToFront();
 
-                //panel.Dispose();
+                CustomButton Delbtn = new CustomButton
+                {
+                    //Location = new Point(100, (i * 50) + 10),
+                    Text = "Delete",
+                    Dock = DockStyle.Right,
+                    ServerName = currentFolders[i].Name
+                };
+
+                CustomButton Openbtn = new CustomButton
+                {
+                    //Location = new Point(200, (i * 50) + 10),
+                    Text = "Open",
+                    Dock = DockStyle.Right,
+                    ServerName = currentFolders[i].Name
+                };
+
+                panel.Controls.Add(Delbtn);
+                panel.Controls.Add(Openbtn);
+                Delbtn.Click += (sender, EventArgs) => { DelFolderbtn_Click(sender, EventArgs, Delbtn.ServerName); };
+                Openbtn.Click += (sender, EventArgs) => { Openbtn_Click(sender, EventArgs, Delbtn.ServerName); };
+
+
                 i++;
             }
 
@@ -131,7 +150,28 @@ namespace DiscordServerStorage
                     Dock = DockStyle.Fill,
                 };
                 panel.Controls.Add(label);
-                label.BringToFront();
+
+                CustomButton Delbtn = new CustomButton
+                {
+                    Location = new Point(100, (i * 50) + 10),
+                    Text = "Delete",
+                    Dock = DockStyle.Right,
+                    ServerName = currentFiles[j].FileName
+                };
+
+                CustomButton Openbtn = new CustomButton
+                {
+                    Location = new Point(200, (i * 50) + 10),
+                    Text = "Download",
+                    Dock = DockStyle.Right,
+                    ServerName = currentFiles[j].FileName
+                };
+
+                panel.Controls.Add(Delbtn);
+                panel.Controls.Add(Openbtn);
+
+                Delbtn.Click += (sender, EventArgs) => { Delbtn_Click(sender, EventArgs, Delbtn.ServerName); };
+                Openbtn.Click += (sender, EventArgs) => { Dwnldbtn_Click(sender, EventArgs, Delbtn.ServerName); };
 
                 //panel.Dispose();
                 i++;
@@ -140,6 +180,33 @@ namespace DiscordServerStorage
 
             
 
+        }
+
+        private async void DelFolderbtn_Click(object sender, EventArgs eventArgs, string serverName)
+        {
+            await Interface.DeleteFolder(serverName);
+        }
+
+        private void Openbtn_Click(object sender, EventArgs eventArgs, string serverName)
+        {
+            Interface.SetCurrentDirectory(serverName);
+
+            PopuplateFoldersAndFiles();
+        }
+
+        private async void Dwnldbtn_Click(object sender, EventArgs eventArgs, string serverName)
+        {
+            //await Task.Run(async () => {  });
+            await Interface.RetrieveFile(KnownFolders.Downloads.Path, serverName);
+
+            
+        }
+
+        private async void Delbtn_Click(object sender, EventArgs e, string FileName)
+        {
+            await Interface.DeleteFile(FileName);
+
+            PopuplateFoldersAndFiles();
         }
 
         private void ProcessLargeFile(FileInfo info)
@@ -199,10 +266,7 @@ namespace DiscordServerStorage
             // small file doesn't really need processing, at least for now. It should simply be able to be uploaded
             // So far, this just simply works. We're gonna let the bot handle the meta data
             // We may also need to pass through more info for said meta data
-            _ = Task.Run(async () => { 
-                await Interface.UploadSmallFile(info);
-                PopuplateFoldersAndFiles();
-            });
+            _ = Task.Run(async () => { await Interface.UploadSmallFile(info); });
         }
 
 
@@ -223,14 +287,46 @@ namespace DiscordServerStorage
             await Task.Run(async () => { await Interface.RetrieveFile(KnownFolders.Downloads.Path, "testvideo.mp4"); });
         }
 
-        private void button2_Click(object sender, EventArgs e)
+        private async void button2_Click(object sender, EventArgs e)
         {
+            await Interface.AddNewDirectory(textBox1.Text);
+            textBox1.Text.Remove(0);
+
             PopuplateFoldersAndFiles();
         }
 
         private void panel1_Scroll(object sender, ScrollEventArgs e)
         {
              vScrollBar1.Value = panel1.VerticalScroll.Value;
+        }
+
+        private void button4_Click(object sender, EventArgs e)
+        {
+            PopuplateFoldersAndFiles();
+        }
+
+        private void textBox1_TextChanged(object sender, EventArgs e)
+        {
+            
+            if (textBox1.Text == "" || textBox1.Text == "root")
+            {
+                button2.Enabled = false;
+            }
+            else
+            {
+                button2.Enabled = true;
+            }
+        }
+
+        private void button3_Click(object sender, EventArgs e)
+        {
+            if(Interface.CurrentDirectory.Name == "root" || Interface.CurrentDirectory.ParentDirectory == null)
+            {
+                return;
+            }
+            Interface.CurrentDirectory = Interface.CurrentDirectory.ParentDirectory;
+
+            PopuplateFoldersAndFiles();
         }
     }
 }

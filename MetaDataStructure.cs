@@ -17,6 +17,7 @@ namespace DiscordServerStorage
     internal class CustomDirectory
     {
         public string Name { get; set; }
+        public CustomDirectory ParentDirectory { get; set; }
         public List<CustomDirectory> SubDirectories = new List<CustomDirectory>();
         public List<CustomFile> MyFiles = new List<CustomFile>();
     }
