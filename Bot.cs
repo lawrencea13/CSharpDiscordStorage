@@ -12,6 +12,7 @@ using System.Runtime.Remoting.Contexts;
 using System.Security.Policy;
 using System.Text;
 using System.Threading.Tasks;
+using System.Drawing.Printing;
 
 namespace DiscordServerStorage
 {
@@ -87,12 +88,14 @@ namespace DiscordServerStorage
                     if(dir.Name == "root")
                     {
                         CurrentDirectory = dir;
+                        RootDirectory = dir;
                         break;
                     }
                 }
                 if(CurrentDirectory == null && MetaDataStructureObject.DirectoryListings.Count != 0)
                 {
                     CurrentDirectory = MetaDataStructureObject.DirectoryListings[0];
+                    RootDirectory = CurrentDirectory;
                 }
                 else if(MetaDataStructureObject.DirectoryListings.Count == 0)
                 {
@@ -101,7 +104,7 @@ namespace DiscordServerStorage
                         Name = "root"
                     });
                     CurrentDirectory = MetaDataStructureObject.DirectoryListings[0];
-
+                    RootDirectory = CurrentDirectory;
 
 
                     await UpdateServerMetaData();
@@ -116,6 +119,7 @@ namespace DiscordServerStorage
                     Name = "root"
                 });
                 CurrentDirectory = MetaDataStructureObject.DirectoryListings[0];
+                RootDirectory = CurrentDirectory;
 
                 await AddNewDirectory("test1", false);
                 await AddNewDirectory("test2", false);
@@ -144,16 +148,22 @@ namespace DiscordServerStorage
         private MetaDataStructure MetaDataStructureObject;
         private bool HasStoredMetaData = false;
         internal CustomDirectory CurrentDirectory;
+        internal CustomDirectory RootDirectory;
         //private List<ulong> TestFile = new List<ulong>();
 
         public async Task AddNewDirectory(string name, bool UpdateServer = true)
         {
-            CustomDirectory temp = new CustomDirectory
-            {
-                Name = name,
-                ParentDirectory = CurrentDirectory
-            };
+            Console.WriteLine(CurrentDirectory.Name);
+
+            CustomDirectory temp = new CustomDirectory();
+            temp.Name = name;
+            temp.ParentDirectoryName = CurrentDirectory.Name;
+
+
+
             CurrentDirectory.SubDirectories.Add(temp);
+
+
 
             if (UpdateServer)
             {
@@ -188,6 +198,68 @@ namespace DiscordServerStorage
             return items;
         }
 
+        internal CustomDirectory RecursiveFindDirectory(CustomDirectory directory, string name)
+        {
+            CustomDirectory returnDir = null;
+
+            foreach(CustomDirectory dir in directory.SubDirectories)
+            {
+                Console.WriteLine(dir.Name);
+                if(dir.Name == name)
+                {
+                    return dir;
+                }
+
+                returnDir = RecursiveFindDirectory(dir, name);
+
+                if(returnDir != null)
+                {
+                    if(returnDir.Name == name)
+                    {
+                        return returnDir;
+                    }
+                }
+
+            }
+            return returnDir;
+        }
+
+        internal CustomDirectory GetParentDirectory(string name)
+        {
+            if(name == "root")
+            {
+                return RootDirectory;
+            }
+
+            return RecursiveFindDirectory(RootDirectory, name);
+
+        }
+
+        internal bool FileAlreadyExists(string fileName)
+        {
+            foreach(CustomFile file in GetFilesInCurrentDirectory())
+            {
+                if(file.FileName == fileName)
+                {
+                    return true;
+                }
+            }
+
+
+            return false;
+        }
+
+        internal bool FolderAlreadyExists(string folderName)
+        {
+            foreach(CustomDirectory dir in GetDirsInCurrentDirectory())
+            {
+                if(dir.Name == folderName)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
 
         private async Task UpdateServerMetaData()
         {
@@ -198,23 +270,37 @@ namespace DiscordServerStorage
             var buffer = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(MetaDataStructureObject, Formatting.None, 
                 new JsonSerializerSettings()
                 {
-                    ReferenceLoopHandling = ReferenceLoopHandling.Ignore
+                    ReferenceLoopHandling = ReferenceLoopHandling.Serialize
                 }));
 
-            using (var fs = new FileStream("tempmetadata.json", FileMode.OpenOrCreate,
+            using (var fs = new FileStream("metadata.json", FileMode.OpenOrCreate,
                 FileAccess.Write, FileShare.None, buffer.Length, true))
             {
                 await fs.WriteAsync(buffer, 0, buffer.Length);
+                fs.Close();
+                fs.Dispose();
             }
 
+            
+
             var Channel = await _client.GetChannelAsync(MetaDataChannel) as IMessageChannel;
-            IUserMessage serverMetaData = await Channel.SendFileAsync("tempmetadata.json");
+            IUserMessage serverMetaData = await Channel.SendFileAsync("metadata.json");
 
             await Channel.ModifyMessageAsync(StaticMetaDataID, msg => { msg.Content = serverMetaData.Id.ToString(); });
+
+            try
+            {
+                File.Delete("metadata.json");
+            }
+            catch 
+            {
+                // don't really need to do anything
+            }
         }
 
         public async Task UploadLargeFile(List<string> FileChunks, FileInfo originalFileInfo)
         {
+
             // Received at step 4. This handles upload and cleanup at the same time.
             var Channel = _client.GetChannel(StorageChannel) as IMessageChannel;
             List<string> ServerMsgRefs = new List<string>();

@@ -57,6 +57,13 @@ namespace DiscordServerStorage
             foreach (string file in files) 
             {
                 FileInfo fileInfo = new FileInfo(file);
+
+                if (Interface.FileAlreadyExists(fileInfo.Name))
+                {
+                    // display failure message
+                    return;
+                }
+
                 if(fileInfo.Length / 1000 > 25000)
                 {
                     // we will handle the file completely within the particular method, only need to pass fileinfo.
@@ -289,6 +296,11 @@ namespace DiscordServerStorage
 
         private async void button2_Click(object sender, EventArgs e)
         {
+            if (Interface.FolderAlreadyExists(textBox1.Text))
+            {
+                // display error message
+                return;
+            }
             await Interface.AddNewDirectory(textBox1.Text);
             textBox1.Text.Remove(0);
 
@@ -312,6 +324,11 @@ namespace DiscordServerStorage
             {
                 button2.Enabled = false;
             }
+            else if (Interface.FolderAlreadyExists(textBox1.Text))
+            {
+                //display error message
+                button2.Enabled = false;
+            }
             else
             {
                 button2.Enabled = true;
@@ -320,11 +337,17 @@ namespace DiscordServerStorage
 
         private void button3_Click(object sender, EventArgs e)
         {
-            if(Interface.CurrentDirectory.Name == "root" || Interface.CurrentDirectory.ParentDirectory == null)
+            if(Interface.CurrentDirectory.Name == "root" ||  string.IsNullOrEmpty(Interface.CurrentDirectory.ParentDirectoryName))
             {
                 return;
             }
-            Interface.CurrentDirectory = Interface.CurrentDirectory.ParentDirectory;
+
+            CustomDirectory newDir = Interface.GetParentDirectory(Interface.CurrentDirectory.ParentDirectoryName);
+            if(newDir != null)
+            {
+                Interface.CurrentDirectory = newDir;
+            }
+            
 
             PopuplateFoldersAndFiles();
         }
