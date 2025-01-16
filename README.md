@@ -3,7 +3,7 @@ Based on a video from a youtuber about stealing storage from discord using JS, I
 Features/Differences:
 A file system! Yay, you can create folders and organize the files. This is all handled client side but the information is stored on the server as well.
 GUI along with the file system, it's ugly and garbage but functional.
-My favorite difference is everything is handled on the client machine. It sucks you can't access the files from any device, but this is a direct upload to discord, no middleman
+My favorite difference is everything is handled on the client machine, meaning theoretically you could have multiple clients on different machines that could access uploaded files.
 Otherwise, just a fun little experiment
 
 ## Current Status
@@ -14,17 +14,17 @@ Otherwise, just a fun little experiment
 4/23/2024 - File system pretty much complete. It's ugly af but it works. Metadata issues also resolved.
 
 ## Known Issues
-The Meta data that identifies "files" and their associated locations can sometimes get messed up. > Issue resolved
 Currently it's hard to get the GUI to update with what the server currently has because of cross thread operations > Mostly fixed, have a few more tweaks and this will be pretty responsive
-Can't delete folders
-Meta data is capped at 25mb(this is the data that identifies all the chunks of the files as well as where they are in the custom file system) due to it being a single file on the server
-If Meta data ever gets to a point where it would be larger than 25 MB, the next limit would be having it all loaded into memory. It's not a lot of memory but it's a theoretical issue if you have thousands of files.
+Meta data is capped at 25mb(this is the data that identifies all the chunks of the files as well as where they are in the custom file system) due to it being a single file on the server. It could be treated similarly to large file uploads and be broken up and recreated at the client level, but this is more of a learning project so there's no need.
 
-## Planned Features
-Haven't done much testing, but would like to see about having multiple files uploaded at once, they process on the client side pretty quickly so uploading should be pretty easy
-Of course the missing features in the file system, including adding folders, refreshing, navigation, etc. > ADDED
-Clientside encryption
 
-# Usage
-You can technically use this right now, but I wouldn't recommend it.
-Once it's complete, I'll provide a list of steps to take to use this, until then, if you can't figure it out on your own, you are probably better off without it.
+## Usage
+You can technically use this right now, but I wouldn't recommend it; it's not set up for end-users, nor is it safe to trust Discord to NOT delete the files.
+
+## Step 1: Create a Discord bot account by following [these](https://discordpy.readthedocs.io/en/stable/discord.html) steps. The bot only needs the ability to read and send messages.
+## Step 2: Create, if applicable, and invite the bot to the discord server(this is where the permissions are actually set as you create an invite link with the oauth2 URL generator).
+## Step 3: Create a channel for storing uploaded files and for metadata(can be 2 separate channels or the same channel.)
+## Step 4: Add the relevant channel ID to the StorageChannel and MetaDataChannel variables located in Bot.cs, as well as the token to the token variable, also located in Bot.cs
+## Step 5: Run the bot once, it will send a message in the channel designated as the MetaDataChannel. Copy the ID from this message and in the same place the Channel IDs were put, replace the StaticMetaDataID with the ID from this message.
+
+
